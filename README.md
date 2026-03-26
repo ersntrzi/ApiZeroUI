@@ -90,6 +90,13 @@ Notlar:
 - `release/win-unpacked/` klasoru cok buyuk oldugu icin git'te tutulmaz.
 - Uygulama imzasizsa ilk calistirmada Windows SmartScreen uyari verebilir.
 
+## macOS Build (DMG/ZIP)
+
+macOS build **Windows'ta uretilmez**. Bunun yerine repo icindeki GitHub Actions workflow'u ile otomatik macOS build alabilirsiniz:
+
+- GitHub → **Actions** → `build-mac` → **Run workflow**
+- Bittiginde **Artifacts** altindan `ApiZero-mac` (DMG/ZIP) indirilebilir.
+
 ## Veri Saklama
 
 Uygulama verileri Electron `userData` dizininde `store.json` olarak saklanir.  
