@@ -5,7 +5,6 @@ dist/
 
 # release output (unpacked çok büyük)
 release/win-unpacked/
-release/*.exe
 release/*.blockmap
 
 # logs / cache
