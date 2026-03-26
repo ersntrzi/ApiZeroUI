@@ -6,6 +6,9 @@ dist/
 # release output (unpacked çok büyük)
 release/win-unpacked/
 release/*.blockmap
+release/latest.yml
+release/builder-debug.yml
+release/ApiZero Setup*.exe
 
 # logs / cache
 npm-debug.log*
