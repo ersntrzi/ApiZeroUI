@@ -3,6 +3,9 @@ node_modules/
 # build çıktıları
 dist/
 
+# release output (unpacked çok büyük)
+release/win-unpacked/
+
 # logs / cache
 npm-debug.log*
 yarn-debug.log*
