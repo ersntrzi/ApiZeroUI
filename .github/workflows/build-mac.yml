@@ -11,6 +11,10 @@ env:
 jobs:
   mac:
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ "arm64", "x64" ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,12 +38,17 @@ jobs:
         run: ls -la assets/icon.icns
 
       - name: Build mac artifacts (dmg + zip)
-        run: npx electron-builder --mac dmg zip --publish never
+        run: |
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            npx electron-builder --mac dmg zip --arm64 --publish never
+          else
+            npx electron-builder --mac dmg zip --x64 --publish never
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ApiZero-mac
+          name: ApiZero-mac-${{ matrix.arch }}
           path: |
             release/*.dmg
             release/*.zip
