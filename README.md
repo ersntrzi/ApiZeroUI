@@ -81,6 +81,10 @@ Bu komut sonunda `release/` altinda su dosyalar olusur:
 - `ApiZero Setup 0.1.0.exe` (kurulumlu NSIS)
 - `ApiZero 0.1.0.exe` (portable, kurulum gerektirmez)
 
+### Hazir Indirme Linki
+
+- Portable EXE: [ApiZero 0.1.0.exe](https://github.com/ersntrzi/ApiZeroUI/blob/main/release/ApiZero%200.1.0.exe?raw=1)
+
 Notlar:
 
 - `release/win-unpacked/` klasoru cok buyuk oldugu icin git'te tutulmaz.
