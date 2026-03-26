@@ -1,0 +1,21 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.apizero.app
+productName: ApiZero
+files:
+  - filter:
+      - dist/**/*
+      - package.json
+asar: true
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+nsis:
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+electronVersion: 31.7.7
