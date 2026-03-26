@@ -16,11 +16,14 @@
         --danger: #dc2626;
         --success: #16a34a;
         --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 6px 20px rgba(0,0,0,0.04);
-        --radius: 12px;
+        --radius: 4px;
         --sidebar-bg: #ffffff;
         --sidebar-muted: #9ca3af;
         --tab-bg: #f3f4f6;
         --statusbar-h: 40px;
+        --font-base: 13px;
+        --font-sm: 12px;
+        --font-xs: 11px;
       }
 
       * { box-sizing: border-box; }
@@ -33,10 +36,12 @@
       body {
         font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
         margin: 0;
-        padding: 16px;
+        padding: 12px;
         padding-bottom: var(--statusbar-h); /* fixed status bar icin alan */
         background: var(--bg);
         color: var(--text);
+        font-size: var(--font-base);
+        line-height: 1.35;
       }
 
       .topbar {
@@ -44,7 +49,7 @@
         gap: 12px;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 14px;
+        padding: 10px 12px;
         background: var(--card);
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -53,19 +58,19 @@
       }
 
       .brand { display: flex; flex-direction: column; line-height: 1.1; }
-      .brand strong { font-size: 15px; }
-      .brand span { font-size: 12px; color: var(--muted); margin-top: 4px; }
+      .brand strong { font-size: 14px; }
+      .brand span { font-size: var(--font-xs); color: var(--muted); margin-top: 2px; }
 
       .actions { display: flex; gap: 8px; align-items: center; }
 
-      button, input, select, textarea { font: inherit; }
+      button, input, select, textarea { font: inherit; font-size: var(--font-base); }
 
       button {
         cursor: pointer;
         border: 1px solid var(--border);
         background: #fff;
-        padding: 9px 12px;
-        border-radius: 10px;
+        padding: 7px 10px;
+        border-radius: var(--radius);
         transition: 0.15s ease;
       }
 
@@ -103,22 +108,22 @@
         border: 1px solid var(--border);
         border-radius: var(--radius);
         box-shadow: var(--shadow);
-        padding: 12px;
+        padding: 10px;
       }
 
-      .card h3 { margin: 0 0 10px; font-size: 14px; }
+      .card h3 { margin: 0 0 8px; font-size: 13px; }
 
       label {
         display: block;
-        font-size: 12px;
+        font-size: var(--font-xs);
         color: var(--muted);
-        margin: 10px 0 6px;
+        margin: 8px 0 5px;
       }
 
       input[type="text"], textarea, select {
         width: 100%;
-        padding: 9px 10px;
-        border-radius: 10px;
+        padding: 7px 9px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         outline: none;
         background: #fff;
@@ -130,7 +135,7 @@
         min-height: 90px;
       }
 
-      .smallHint { margin-top: 8px; font-size: 12px; color: var(--muted); }
+      .smallHint { margin-top: 6px; font-size: var(--font-xs); color: var(--muted); }
 
       .envSectionTitle { font-size: 13px; font-weight: 600; margin: 0 0 10px; color: var(--text); }
       .envPanelBlock + .envPanelBlock { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
@@ -152,7 +157,7 @@
       .tab {
         flex: 1;
         padding: 8px 10px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         background: #fff;
         color: #111827;
@@ -170,28 +175,28 @@
       #historyList pre {
         background: #f3f4f6;
         padding: 10px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         overflow: auto;
         max-height: 240px;
         border: 1px solid #e5e7eb;
       }
 
-      .muted { color: var(--muted); font-size: 12px; }
+      .muted { color: var(--muted); font-size: var(--font-xs); }
       .success { color: var(--success); font-weight: 700; }
       .failed { color: var(--danger); font-weight: 700; }
 
       .historyItem {
         padding: 10px;
         border: 1px solid var(--border);
-        border-radius: 12px;
+        border-radius: var(--radius);
         margin-bottom: 10px;
         background: #fff;
       }
 
       .historyHeader { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
-      .historyMeta { color: var(--muted); font-size: 12px; margin-top: 6px; }
+      .historyMeta { color: var(--muted); font-size: var(--font-xs); margin-top: 4px; }
 
-      .resultLine { margin-top: 8px; font-size: 12px; color: var(--muted); }
+      .resultLine { margin-top: 6px; font-size: var(--font-xs); color: var(--muted); }
 
       /* Backward-compatible styling: existing markup uses .row/.col/.box */
       .row { display: flex; gap: 12px; align-items: flex-start; }
@@ -214,7 +219,7 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 32px - var(--statusbar-h));
+        height: calc(100vh - 24px - var(--statusbar-h));
       }
       .sidebarTop {
         padding: 10px;
@@ -224,6 +229,7 @@
         display: flex;
         gap: 8px;
         align-items: center;
+        justify-content: flex-end;
       }
       .dropdown {
         position: relative;
@@ -237,7 +243,7 @@
         min-width: 200px;
         border: 1px solid var(--border);
         background: #fff;
-        border-radius: 12px;
+        border-radius: var(--radius);
         box-shadow: var(--shadow);
         padding: 6px;
         display: none;
@@ -254,7 +260,7 @@
         border: 0;
         background: transparent;
         padding: 10px 10px;
-        border-radius: 10px;
+        border-radius: var(--radius);
       }
       .menu button:hover { background: #f3f4f6; }
 
@@ -306,7 +312,7 @@
         line-height: 1;
         cursor: pointer;
         padding: 4px 10px;
-        border-radius: 8px;
+        border-radius: var(--radius);
         color: var(--muted);
       }
       .modal__close:hover {
@@ -327,7 +333,7 @@
         width: 100%;
         text-align: left;
         padding: 12px 14px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         background: #fff;
         cursor: pointer;
@@ -351,7 +357,7 @@
         height: 32px;
         min-width: 32px;
         padding: 0;
-        border-radius: 8px;
+        border-radius: var(--radius);
         font-size: 18px;
         line-height: 1;
         font-weight: 600;
@@ -362,6 +368,66 @@
       .sidebarSearch input {
         flex: 1;
       }
+      .collectionFilterRow {
+        margin-bottom: 10px;
+        position: sticky;
+        top: 52px;
+        z-index: 3;
+        background: var(--sidebar-bg);
+        padding: 2px 0 8px;
+      }
+      .collectionsToolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+        position: sticky;
+        top: 6px;
+        z-index: 4;
+        background: var(--sidebar-bg);
+        padding: 2px 0 8px;
+        border-bottom: 1px solid rgba(230, 232, 240, 0.8);
+      }
+      .collectionsTitle {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .collectionsToolbarActions {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .filterInputWrap {
+        position: relative;
+      }
+      .filterInputWrap input {
+        width: 100%;
+        margin: 0;
+        padding-right: 38px;
+      }
+      .filterClearBtn {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius);
+        font-size: 14px;
+        line-height: 1;
+        background: #fff;
+      }
+      .filterClearBtn.hidden {
+        visibility: hidden;
+        pointer-events: none;
+      }
       .sidebarTabs {
         display: flex;
         gap: 6px;
@@ -370,13 +436,34 @@
       .sidebarTabs .tab {
         flex: unset;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: var(--radius);
         background: var(--tab-bg);
       }
       .sidebarBody {
         padding: 10px;
-        overflow: auto;
+        overflow: hidden;
         flex: 1;
+        min-height: 0;
+      }
+      #collectionsTabPanel {
+        height: 100%;
+        min-height: 0;
+      }
+      #collectionsTabPanel.active {
+        display: flex;
+        flex-direction: column;
+      }
+      #historyTabPanel,
+      #envTabPanel {
+        height: 100%;
+        overflow: auto;
+      }
+      #requestsList {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 2px;
       }
 
       /* Main request/response area */
@@ -388,15 +475,15 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 32px - var(--statusbar-h)); /* body padding(16*2) + statusbar */
+        height: calc(100vh - 24px - var(--statusbar-h)); /* body padding(12*2) + statusbar */
       }
       .reqBar {
         display: grid;
         grid-template-columns: 120px minmax(260px, 1fr) auto;
-        gap: 8px;
-        padding: 10px;
+        gap: 6px;
+        padding: 8px 10px;
         border-bottom: 1px solid var(--border);
-        align-items: start;
+        align-items: center;
         background: #fff;
         flex-shrink: 0;
         min-width: 0;
@@ -411,20 +498,24 @@
       /* URL: tek kutu — cerceve wrap'ta, icte backdrop + seffaf input */
       .reqBar .varHighlightWrap {
         border: 1px solid var(--border);
-        border-radius: 10px;
+        border-radius: var(--radius);
         background: #fff;
         box-sizing: border-box;
+        min-height: 34px;
       }
       .reqBar .varHighlightBackdrop {
         border: none;
-        border-radius: 9px;
+        border-radius: var(--radius);
       }
       .reqBar .varHighlightInput {
         border: none !important;
         box-shadow: none !important;
         outline: none;
-        border-radius: 10px;
+        border-radius: var(--radius);
         width: 100%;
+        min-height: 34px;
+        padding: 7px 9px;
+        font-size: 13px;
       }
 
       .tabStrip {
@@ -446,7 +537,7 @@
         align-items: center;
         padding: 7px 10px;
         border: 1px solid var(--border);
-        border-radius: 999px;
+        border-radius: var(--radius);
         background: #fff;
         cursor: pointer;
         font-size: 12px;
@@ -465,7 +556,7 @@
       .reqTabClose {
         width: 20px;
         height: 20px;
-        border-radius: 999px;
+        border-radius: var(--radius);
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -474,8 +565,28 @@
         font-size: 12px;
       }
       .reqTabClose:hover { border-color: #cfd5e6; }
-      .reqBar button {
-        padding: 10px 12px;
+      .reqBar button { padding: 8px 10px; font-size: 13px; }
+      #methodSel, #reqEnvSelect {
+        min-height: 34px;
+        padding: 7px 9px;
+        font-size: 13px;
+      }
+      #saveReqBtn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #saveReqBtn svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+      }
+      #sendBtn {
+        min-height: 34px;
+        padding: 7px 11px;
       }
       .reqTabs {
         display: flex;
@@ -488,7 +599,7 @@
       .reqTabs .tab {
         flex: unset;
         padding: 8px 10px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         background: #fff;
       }
       .reqTabs .tab.active {
@@ -514,10 +625,12 @@
         background: var(--border);
       }
       .responseStack {
-        flex: 0 0 auto;
+        flex: 0 0 30%;
         display: flex;
         flex-direction: column;
         min-height: 0;
+        min-height: 140px;
+        max-height: 42vh;
         background: #fff;
         border-top: 1px solid var(--border);
       }
@@ -539,7 +652,7 @@
       }
       .badge {
         padding: 2px 8px;
-        border-radius: 999px;
+        border-radius: var(--radius);
         font-size: 12px;
         border: 1px solid var(--border);
         background: #fff;
@@ -549,10 +662,46 @@
       .respBody {
         padding: 10px;
         overflow: auto;
-        min-height: 140px;
-        max-height: min(42vh, 420px);
+        min-height: 0;
+        max-height: none;
         background: #fff;
-        flex: 0 1 auto;
+        flex: 1 1 auto;
+      }
+      .respViewTabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+      .respViewBtn {
+        border: 1px solid var(--border);
+        background: #fff;
+        border-radius: var(--radius);
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+      .respViewBtn.active {
+        background: #eef2ff;
+        border-color: #c7d2fe;
+        color: #1d4ed8;
+        font-weight: 600;
+      }
+      .respViewPanel { display: none; }
+      .respViewPanel.active { display: block; }
+      #respRawPre,
+      #respPrettyPre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+      #respHtmlFrame {
+        width: 100%;
+        height: min(36vh, 360px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: #fff;
       }
 
       /* Bottom status bar (logs / warnings) */
@@ -630,7 +779,7 @@
         z-index: 0;
         pointer-events: none;
         overflow: hidden;
-        border-radius: 10px;
+        border-radius: var(--radius);
         border: 1px solid transparent;
         box-sizing: border-box;
         color: var(--text);
@@ -704,14 +853,57 @@
         gap: 8px;
         align-items: center;
         padding: 6px 8px;
-        border-radius: 10px;
+        border-radius: var(--radius);
         cursor: pointer;
         user-select: none;
+        position: relative;
+      }
+      .treeItem.treeItemDragging {
+        opacity: 0.55;
+        background: #eef2ff;
+        border: 1px solid rgba(37, 99, 235, 0.25);
+      }
+      .treeItem.treeItemDropTarget {
+        background: #eef2ff;
+        outline: 2px solid rgba(37, 99, 235, 0.25);
+      }
+      .treeItem.treeItemDropTarget::after {
+        content: "";
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        top: 2px;
+        height: 2px;
+        background: rgba(37, 99, 235, 0.9);
+        border-radius: 2px;
       }
       .treeItem:hover { background: #f3f4f6; }
       .treeItem.active { background: #eef2ff; }
-      .treeIcon { width: 18px; text-align: center; color: var(--muted); }
-      .treeName { flex: 1; font-size: 13px; }
+      .treeIcon {
+        min-width: 18px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--muted);
+        line-height: 1;
+      }
+      .treeIcon svg {
+        width: 12px;
+        height: 12px;
+        display: block;
+      }
+      .treeTypeGlyph {
+        font-size: 15px;
+        line-height: 1;
+      }
+      .treeName {
+        flex: 1;
+        min-width: 0;
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .treeMeta { font-size: 12px; color: var(--muted); }
 
       .treeActions {
@@ -730,7 +922,7 @@
         align-items: center;
         justify-content: center;
         font-size: 0; /* text baseline kaymasini engelle */
-        border-radius: 8px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         background: #fff;
       }
@@ -746,7 +938,7 @@
       .pillBtn {
         height: 28px;
         padding: 0 10px;
-        border-radius: 999px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
         background: #fff;
         font-size: 12px;
@@ -769,7 +961,7 @@
         max-width: min(420px, 90vw);
         background: var(--card);
         border: 1px solid var(--border);
-        border-radius: 10px;
+        border-radius: var(--radius);
         box-shadow: 0 8px 24px rgba(0,0,0,0.12);
         padding: 4px 0;
       }
@@ -794,7 +986,7 @@
         letter-spacing: 0.04em;
         flex: 0 0 auto;
         padding: 2px 8px;
-        border-radius: 999px;
+        border-radius: var(--radius);
         border: 1px solid transparent;
       }
       .varSuggestScope.scope-env {
@@ -836,13 +1028,13 @@
         min-width: 120px;
         padding: 6px 8px;
         font-size: 12px;
-        border-radius: 8px;
+        border-radius: var(--radius);
         border: 1px solid var(--border);
       }
       .varSuggestAddRow button {
         padding: 6px 10px;
         font-size: 12px;
-        border-radius: 8px;
+        border-radius: var(--radius);
       }
 
       /* {{var}} uzerine gelince mevcut deger */
@@ -858,7 +1050,7 @@
         color: #f9fafb;
         background: #111827;
         border: 1px solid rgba(255,255,255,0.12);
-        border-radius: 8px;
+        border-radius: var(--radius);
         box-shadow: 0 10px 28px rgba(0,0,0,0.28);
         pointer-events: none;
         white-space: pre-wrap;
@@ -872,7 +1064,6 @@
       <aside class="sidebar">
         <div class="sidebarTop">
           <div class="sidebarSearch">
-            <input id="sidebarFilter" type="text" placeholder="Filter" />
             <div class="dropdown">
               <button id="sidebarNewBtn" type="button">+ New</button>
               <div id="newMenu" class="menu menu--right">
@@ -899,26 +1090,31 @@
           </div>
 
           <div id="collectionsTabPanel" class="tabPanel active">
-            <div style="display:flex; gap:8px; align-items:center; justify-content:flex-end;">
-              <div style="display:flex; gap:6px; align-items:center;">
+            <div class="collectionsToolbar">
+              <div class="collectionsTitle">Collections</div>
+              <div class="collectionsToolbarActions">
                 <button id="exportVarsBtn" class="btn-ghost" type="button">Export</button>
                 <button id="importMenuBtn" type="button">Import</button>
+                <button
+                  type="button"
+                  id="newCollectionOpenModalBtn"
+                  class="sidebarAddBtn"
+                  title="Yeni koleksiyon"
+                  aria-label="Yeni koleksiyon"
+                >
+                  +
+                </button>
               </div>
             </div>
-
-            <div class="sidebarRowTitle">
-              <div class="muted" style="margin: 0;">Collections</div>
-              <button
-                type="button"
-                id="newCollectionOpenModalBtn"
-                class="sidebarAddBtn"
-                title="Yeni koleksiyon"
-                aria-label="Yeni koleksiyon"
-              >
-                +
-              </button>
+            <div class="collectionFilterRow">
+              <div class="filterInputWrap">
+                <input id="sidebarFilter" type="text" placeholder="Collections içinde ara..." />
+                <button id="sidebarFilterClearBtn" class="filterClearBtn" type="button" title="Filtreyi temizle" aria-label="Filtreyi temizle">
+                  ×
+                </button>
+              </div>
             </div>
-            <div id="requestsList" style="max-height: 360px; overflow:auto;"></div>
+            <div id="requestsList"></div>
 
             <div id="collectionsHint" class="smallHint" style="margin-top: 12px;">
               Request kaydetme sag tarafta `Save` ile yapilir. Buradan sadece secip yukleyebilirsin.
@@ -992,20 +1188,18 @@
             <select id="reqEnvSelect" style="max-width: 220px;">
               <option value="">No environment</option>
             </select>
-            <button id="saveReqBtn" type="button">Save</button>
+            <button id="saveReqBtn" type="button" title="Save" aria-label="Save">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path
+                  d="M5 3h11l3 3v15H5V3zm2 2v4h8V5H7zm0 8v6h10v-6H7z"
+                  fill="currentColor"
+                ></path>
+              </svg>
+            </button>
             <button id="sendBtn" class="btn-primary" type="button">Send</button>
           </div>
         </div>
-
-        <div id="saveBar" style="padding:10px; border-bottom:1px solid var(--border); background:#fff; flex-shrink:0;">
-          <div style="display:grid; grid-template-columns: 1fr 160px; gap:8px; align-items:start;">
-            <input id="requestNameInput" type="text" placeholder="Request name (e.g. Login)" />
-            <button id="saveAsBtn" type="button" style="height:auto; align-self:start;">Save as</button>
-          </div>
-          <div class="smallHint" style="margin-top:8px;">
-            Save hedefi: soldaki tree'de secili collection/folder'a gore belirlenir. Save as: her zaman yeni kayit.
-          </div>
-        </div>
+        <input id="requestNameInput" type="text" style="display:none" />
 
         <div class="reqTabs">
           <button id="reqTabParams" class="tab active" type="button">Params</button>
@@ -1016,7 +1210,14 @@
 
         <div class="reqPanel">
           <div id="reqPanelParams" class="tabPanel active">
-            <div class="muted">V1: Query Params UI sonraki adim. Simdilik URL icinden yonet.</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+              <div style="font-weight:600;">Query Params</div>
+              <button id="addParamRowBtn" type="button">+ Param</button>
+            </div>
+            <div id="paramsTable" style="margin-top:10px;"></div>
+            <div class="smallHint" style="margin-top:8px;">
+              Buradaki degisiklikler URL query kismina otomatik yansir.
+            </div>
           </div>
 
           <div id="reqPanelHeaders" class="tabPanel">
@@ -1052,7 +1253,20 @@
             </div>
           </div>
           <div class="respBody">
-            <pre id="respPreviewPre" style="margin:0;"></pre>
+            <div class="respViewTabs">
+              <button id="respViewPrettyBtn" type="button" class="respViewBtn">Pretty</button>
+              <button id="respViewRawBtn" type="button" class="respViewBtn">Raw</button>
+              <button id="respViewPreviewBtn" type="button" class="respViewBtn">Preview</button>
+            </div>
+            <div id="respPrettyPanel" class="respViewPanel">
+              <pre id="respPrettyPre"></pre>
+            </div>
+            <div id="respRawPanel" class="respViewPanel">
+              <pre id="respRawPre"></pre>
+            </div>
+            <div id="respPreviewPanel" class="respViewPanel">
+              <iframe id="respHtmlFrame" title="HTML Preview" sandbox=""></iframe>
+            </div>
           </div>
         </div>
       </main>
@@ -1145,6 +1359,74 @@
           <button type="button" id="importMenuPostman" class="modal__btn">Postman collection (v2.1)</button>
           <button type="button" id="importMenuOpenApiFile" class="modal__btn">OpenAPI / Swagger (JSON dosya)</button>
           <button type="button" id="importMenuOpenApiUrl" class="modal__btn">OpenAPI / Swagger (URL)</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="importOpenApiUrlModal" class="modal" aria-hidden="true">
+      <div class="modal__backdrop" id="importOpenApiUrlModalBackdrop"></div>
+      <div
+        id="importOpenApiUrlModalPanel"
+        class="modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="importOpenApiUrlModalTitle"
+      >
+        <div class="modal__header">
+          <h2 id="importOpenApiUrlModalTitle" class="modal__title">OpenAPI / Swagger (URL)</h2>
+          <button type="button" id="importOpenApiUrlModalClose" class="modal__close" aria-label="Kapat">×</button>
+        </div>
+        <div class="modal__body">
+          <label for="importOpenApiUrlInput">JSON swagger/OpenAPI endpoint</label>
+          <input
+            id="importOpenApiUrlInput"
+            type="text"
+            placeholder="https://example.com/swagger.json"
+            autocomplete="off"
+            style="width: 100%; margin-top: 6px"
+          />
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <button type="button" id="importOpenApiUrlModalImportBtn" class="btn-primary" style="flex:1;">Import</button>
+            <button type="button" id="importOpenApiUrlModalCancelBtn" style="flex:1;">Kapat</button>
+          </div>
+          <div class="smallHint" style="margin-top: 8px;">
+            Not: Swagger UI (HTML) yerine JSON dosyası/endpoint kullandığınızdan emin olun.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="saveRequestModal" class="modal" aria-hidden="true">
+      <div class="modal__backdrop" id="saveRequestModalBackdrop"></div>
+      <div
+        id="saveRequestModalPanel"
+        class="modal__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="saveRequestModalTitle"
+      >
+        <div class="modal__header">
+          <h2 id="saveRequestModalTitle" class="modal__title">Request kaydet</h2>
+          <button type="button" id="saveRequestModalClose" class="modal__close" aria-label="Kapat">×</button>
+        </div>
+        <div class="modal__body">
+          <label for="saveRequestNameInput">Request adı</label>
+          <input
+            id="saveRequestNameInput"
+            type="text"
+            placeholder="Request name (e.g. Login)"
+            autocomplete="off"
+            style="width: 100%; margin-top: 6px"
+          />
+          <label for="saveRequestCollectionSelect" style="margin-top: 4px;">Collection</label>
+          <select id="saveRequestCollectionSelect" style="width: 100%; margin-top: 6px;"></select>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <button type="button" id="saveRequestModalSaveBtn" class="btn-primary" style="flex:1;">Save</button>
+            <button type="button" id="saveRequestModalSaveAsBtn" style="flex:1;">Save as</button>
+          </div>
+          <div class="smallHint" style="margin-top: 8px;">
+            Save hedefi: soldaki tree'de secili collection/folder'a gore belirlenir. Save as: her zaman yeni kayit.
+          </div>
         </div>
       </div>
     </div>

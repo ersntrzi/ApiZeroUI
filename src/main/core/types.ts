@@ -107,6 +107,8 @@ export interface SendRequestResultV1 {
   success: boolean;
   statusCode?: number;
   responsePreview?: string;
+  responseRaw?: string;
+  responseContentType?: string;
   errorMessage?: string;
   resolvedUrl?: string;
 }

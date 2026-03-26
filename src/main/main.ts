@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu } from "electron";
 import path from "path";
 import crypto from "crypto";
 import fs from "fs";
@@ -72,16 +72,30 @@ function getAppIconPath(): string {
 }
 
 function createWindow() {
+  // Electron'in native application menu bar'ını kapat.
+  // (HTML'deki + New/Import menülerle karışmasın diye.)
+  try {
+    Menu.setApplicationMenu(null);
+  } catch {
+    /* ignore */
+  }
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     icon: getAppIconPath(),
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "..", "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  try {
+    mainWindow.setMenu(null);
+  } catch {
+    /* ignore */
+  }
 
   mainWindow.loadFile(getRendererIndexPath());
 
@@ -464,6 +478,50 @@ ipcMain.handle(
 );
 
 ipcMain.handle(
+  "moveRequestNodeToIndexV1",
+  async (
+    _evt,
+    args: {
+      requestId: string;
+      targetCollectionId: string;
+      targetFolderId?: string | null;
+      targetIndex: number;
+    },
+  ) => {
+    const requestId = args?.requestId;
+    const targetCollectionId = args?.targetCollectionId;
+    const targetFolderId = args?.targetFolderId ?? null;
+    const targetIndex = Number(args?.targetIndex);
+
+    if (!requestId) throw new Error("requestId is required");
+    if (!targetCollectionId) throw new Error("targetCollectionId is required");
+    if (!Number.isFinite(targetIndex)) throw new Error("targetIndex is required");
+
+    // Extract from whichever collection contains it
+    let extracted: CollectionRequestNodeV1 | null = null;
+    for (const c of store.collections) {
+      if (!Array.isArray(c.nodes)) c.nodes = [];
+      extracted = extractRequestById(c.nodes, requestId);
+      if (extracted) break;
+    }
+    if (!extracted) throw new Error("request not found");
+
+    const targetCollection = store.collections.find((c) => c.id === targetCollectionId);
+    if (!targetCollection) throw new Error("target collection not found");
+    if (!Array.isArray(targetCollection.nodes)) targetCollection.nodes = [];
+
+    const parent = findFolderById(targetCollection.nodes, targetFolderId);
+    const targetArr = parent ? parent.children : targetCollection.nodes;
+
+    const idx = Math.max(0, Math.min(targetArr.length, Math.floor(targetIndex)));
+    targetArr.splice(idx, 0, extracted);
+
+    persist();
+    return { ok: true };
+  },
+);
+
+ipcMain.handle(
   "moveFolderV1",
   async (
     _evt,
@@ -772,6 +830,10 @@ function importOpenApiCollectionFromJsonText(raw: string): CollectionV1 {
   return openApiDocumentToCollection(parsed);
 }
 
+function importOpenApiCollectionFromParsedJson(doc: unknown): CollectionV1 {
+  return openApiDocumentToCollection(doc);
+}
+
 ipcMain.handle("importOpenApiV1", async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog({
     title: "Import OpenAPI / Swagger (JSON)",
@@ -805,7 +867,35 @@ ipcMain.handle("importOpenApiFromUrlV1", async (_evt, args: { url: string }) => 
   if (!urlStr) return { ok: false, message: "URL boş" };
   try {
     const raw = await fetchOpenApiJsonFromUrl(urlStr);
-    const collection = importOpenApiCollectionFromJsonText(raw);
+    // BOM bazen JSON parse etmeyi bozuyor (özellikle bazı editör/servislerde)
+    const normalized = raw.replace(/^\uFEFF/, "");
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(normalized);
+    } catch (e: any) {
+      const t = String(normalized ?? "").trim();
+      const lower = t.slice(0, 500).toLowerCase();
+      // Swagger UI gibi HTML dönüyorsa direkt mesaj verelim.
+      if (lower.startsWith("<") || lower.includes("swagger-ui")) {
+        return {
+          ok: false,
+          message: "URL HTML döndürüyor gibi görünüyor (Swagger UI sayfası olabilir). Lütfen JSON endpoint kullan (örn: /swagger.json).",
+        };
+      }
+      // YAML ihtimalinde açıkça söyleyelim.
+      if (lower.startsWith("openapi:") || lower.startsWith("swagger:") || lower.includes("\nopenapi:") || lower.includes("\nswagger:")) {
+        return {
+          ok: false,
+          message: "URL YAML döndürüyor gibi görünüyor. Şimdilik URL'den sadece JSON import destekleniyor (örn: /swagger.json).",
+        };
+      }
+      return {
+        ok: false,
+        message: `JSON parse edilemedi: ${e?.message ?? "hata"}. URL'nin swagger.json/OpenAPI JSON döndürdüğünden emin ol.`,
+      };
+    }
+
+    const collection = importOpenApiCollectionFromParsedJson(parsed);
     store.collections.unshift(collection);
     persist();
     return { ok: true, id: collection.id, name: collection.name, requestCount: countRequestNodes(collection.nodes ?? []) };

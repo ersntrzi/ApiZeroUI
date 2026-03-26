@@ -29,6 +29,12 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("deleteFolderV1", args),
   moveRequestNodeV1: (args: { requestId: string; targetCollectionId: string; targetFolderId?: string | null }) =>
     ipcRenderer.invoke("moveRequestNodeV1", args),
+  moveRequestNodeToIndexV1: (args: {
+    requestId: string;
+    targetCollectionId: string;
+    targetFolderId?: string | null;
+    targetIndex: number;
+  }) => ipcRenderer.invoke("moveRequestNodeToIndexV1", args),
   moveFolderV1: (args: { folderId: string; targetCollectionId: string; targetFolderId?: string | null }) =>
     ipcRenderer.invoke("moveFolderV1", args),
   renameCollectionV1: (args: { collectionId: string; name: string }) =>

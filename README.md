@@ -10,6 +10,8 @@ Postman benzeri bir deneyim sunar: request hazirlama, collection/folder yonetimi
   - Folder olusturma (tree uzerinden), yeniden adlandirma, silme
   - Request olusturma, kaydetme, yeniden adlandirma, silme
   - Surukle-birak ile request/folder tasima
+  - Sol panelde request satirlari arasi surukle-birak ile yeniden siralama
+  - Request satirinda kopyala ikonu ile ayni request'in duplicate edilmesi (`(copy)` eklenir)
 - **Sekmeli request calisma alani**
   - Birden fazla request'i ayni anda tab olarak acma
   - Tab kapatma
@@ -17,7 +19,7 @@ Postman benzeri bir deneyim sunar: request hazirlama, collection/folder yonetimi
 - **Request editor**
   - HTTP method secimi
   - URL, headers, body ve post-response script alanlari
-  - Save / Save as akisi
+  - Save / Save as akisi (modal ile: Request adi + hedef `Collection` secimi)
 - **Environment ve Global degiskenler**
   - Ortam olusturma/silme/yeniden adlandirma
   - Ortam ve global variable tablolari
@@ -29,7 +31,8 @@ Postman benzeri bir deneyim sunar: request hazirlama, collection/folder yonetimi
 - **Import/Export**
   - ApiZero backup import/export
   - Postman Collection v2.1 import
-  - OpenAPI/Swagger (JSON dosya veya URL) import
+  - OpenAPI/Swagger import (JSON dosya veya JSON endpoint URL)
+  - Swagger UI HTML yerine JSON endpoint kullaniminda daha anlasilir hata mesaji
 
 ## Teknoloji Yigini
 
@@ -80,6 +83,12 @@ Bu komut sonunda `release/` altinda su dosyalar olusur:
 
 - `ApiZero Setup 0.1.0.exe` (kurulumlu NSIS)
 - `ApiZero 0.1.0.exe` (portable, kurulum gerektirmez)
+
+Sadece portable EXE istiyorsan:
+
+```bash
+npm run dist -- --win portable --x64
+```
 
 ### Hazir Indirme Linki
 

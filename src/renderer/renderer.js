@@ -49,6 +49,97 @@ function closeImportModal() {
   }
 }
 
+function closeSaveRequestModal() {
+  const m = $("saveRequestModal");
+  if (m) {
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+  }
+}
+
+function closeImportOpenApiUrlModal() {
+  const m = $("importOpenApiUrlModal");
+  if (m) {
+    m.classList.remove("open");
+    m.setAttribute("aria-hidden", "true");
+  }
+}
+
+function openImportOpenApiUrlModal(initialValue) {
+  closeImportModal();
+  closeNewCollectionModal();
+  closeNewFolderModal();
+  closeSaveRequestModal();
+  const m = $("importOpenApiUrlModal");
+  if (m) {
+    m.classList.add("open");
+    m.setAttribute("aria-hidden", "false");
+  }
+  const inp = $("importOpenApiUrlInput");
+  if (inp) {
+    inp.value = String(initialValue ?? inp.value ?? "").trim();
+    requestAnimationFrame(() => {
+      try {
+        inp.focus();
+        inp.select();
+      } catch {}
+    });
+  }
+}
+
+function openSaveRequestModal() {
+  closeImportModal();
+  closeNewCollectionModal();
+  closeNewFolderModal();
+  const m = $("saveRequestModal");
+  if (m) {
+    m.classList.add("open");
+    m.setAttribute("aria-hidden", "false");
+  }
+  const sourceName = String(($("requestNameInput")?.value ?? getActiveTab()?.title ?? "")).trim();
+  const input = $("saveRequestNameInput");
+  if (input) {
+    input.value = sourceName;
+    requestAnimationFrame(() => {
+      try {
+        input.focus();
+        input.select();
+      } catch {
+        /* ignore */
+      }
+    });
+  }
+  syncSaveRequestCollectionSelect();
+}
+
+async function runSaveRequestFallback(forceNew) {
+  const initial = String(($("requestNameInput")?.value ?? getActiveTab()?.title ?? "")).trim();
+  const name = window.prompt("Request adı girin:", initial || "New Request");
+  if (name == null) return;
+  const trimmed = String(name).trim();
+  if (!trimmed) {
+    $("resultLine").textContent = "Request name bos olamaz.";
+    return;
+  }
+  if ($("requestNameInput")) $("requestNameInput").value = trimmed;
+  await saveRequest({ forceNew: !!forceNew });
+}
+
+function syncSaveRequestCollectionSelect() {
+  const sel = $("saveRequestCollectionSelect");
+  if (!sel) return;
+  const collections = cachedState?.collections ?? [];
+  sel.innerHTML = "";
+  for (const c of collections) {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.textContent = c.name ?? "Untitled Collection";
+    sel.appendChild(opt);
+  }
+  const preferredId = saveTargetCollectionId || selectedCollectionId || collections[0]?.id || "";
+  if (preferredId) sel.value = preferredId;
+}
+
 let newFolderContext = null; // { collectionId: string, parentFolderId: string|null }
 
 function closeNewFolderModal() {
@@ -164,14 +255,24 @@ let selectedRequestId = null;
 let selectedFolderId = null;
 let lastResponse = null;
 let headerRows = [];
+let paramRows = [];
+let syncingUrlFromParams = false;
 
 let saveTargetCollectionId = null;
 let saveTargetFolderId = null;
+
+// Tree request reorder drag UI
+let draggingTreeRequestEl = null;
+let treeDropTargetEl = null;
 
 let renaming = null; // { type: "folder"|"request", id: string, initialName: string }
 let pendingDelete = null; // { type: "collection"|"request"|"folder", collectionId: string, id: string }
 
 let cachedState = null; // son getState sonucu
+let refreshStateInFlight = null;
+const refreshStatePendingOpts = {
+  deferHeavy: null,
+};
 let collapseState = {
   collections: {}, // { [collectionId]: boolean }
   folders: {}, // { [folderId]: boolean }
@@ -341,11 +442,13 @@ function loadDraftToForm(d) {
   if ($("requestNameInput")) $("requestNameInput").value = d.name ?? "";
   if ($("methodSel")) $("methodSel").value = d.method ?? "GET";
   if ($("urlInput")) $("urlInput").value = d.url ?? "";
+  setParamRowsFromUrl($("urlInput")?.value ?? "");
+  renderParamsTable();
   setHeadersRowsFromObject(d.headers ?? { "Content-Type": "application/json" });
   if ($("bodyJson")) $("bodyJson").value = d.body ?? "";
   if ($("postResScript")) $("postResScript").value = d.postResScript ?? "";
   setResponseUI(null);
-  refreshVariableHighlights();
+  scheduleRefreshVariableHighlights();
 }
 
 function ensureActiveTab() {
@@ -372,6 +475,23 @@ function treeIconPlusSvg() {
 function treeIconXSvg() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function treeIconCopySvg() {
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M9 9h10v10H9zM5 5h10v2H7v8H5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function treeChevronSvg(collapsed) {
+  if (collapsed) {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 }
 
@@ -574,8 +694,10 @@ function setLeftTab(tab) {
   hideVarSuggest();
   hideVarHoverTooltip();
   closeImportModal();
+  closeImportOpenApiUrlModal();
   closeNewCollectionModal();
   closeNewFolderModal();
+  closeSaveRequestModal();
 
   for (const [k, el] of Object.entries(panels)) {
     if (!el) continue;
@@ -611,7 +733,44 @@ function setRequestTab(tab) {
   }
   if (tab === "headers") {
     requestAnimationFrame(() => renderHeadersTable());
+  } else if (tab === "params") {
+    requestAnimationFrame(() => renderParamsTable());
   }
+}
+
+let responseViewMode = "pretty"; // pretty | raw | preview
+
+function setResponseViewMode(mode) {
+  responseViewMode = mode;
+  const btnMap = {
+    pretty: $("respViewPrettyBtn"),
+    raw: $("respViewRawBtn"),
+    preview: $("respViewPreviewBtn"),
+  };
+  const panelMap = {
+    pretty: $("respPrettyPanel"),
+    raw: $("respRawPanel"),
+    preview: $("respPreviewPanel"),
+  };
+  for (const [k, el] of Object.entries(btnMap)) {
+    if (!el) continue;
+    el.classList.toggle("active", k === mode);
+  }
+  for (const [k, el] of Object.entries(panelMap)) {
+    if (!el) continue;
+    el.classList.toggle("active", k === mode);
+  }
+}
+
+function detectResponseKind(result) {
+  const ct = String(result?.responseContentType ?? "").toLowerCase();
+  if (ct.includes("json")) return "json";
+  if (ct.includes("html")) return "html";
+  const raw = String(result?.responseRaw ?? result?.responsePreview ?? "");
+  const t = raw.trimStart();
+  if (t.startsWith("{") || t.startsWith("[")) return "json";
+  if (t.startsWith("<!doctype html") || t.startsWith("<html") || t.startsWith("<body")) return "html";
+  return "text";
 }
 
 function setResponseUI(result) {
@@ -619,16 +778,21 @@ function setResponseUI(result) {
 
   const badge = $("respStatusBadge");
   const info = $("respInfo");
-  const pre = $("respPreviewPre");
+  const prettyPre = $("respPrettyPre");
+  const rawPre = $("respRawPre");
+  const htmlFrame = $("respHtmlFrame");
   const dot = $("statusDot");
 
-  if (!badge || !info || !pre) return;
+  if (!badge || !info || !prettyPre || !rawPre || !htmlFrame) return;
 
   if (!result) {
     badge.className = "badge";
     badge.textContent = "-";
     info.textContent = "-";
-    pre.textContent = "";
+    prettyPre.textContent = "";
+    rawPre.textContent = "";
+    htmlFrame.srcdoc = "";
+    setResponseViewMode("pretty");
     if (dot) dot.className = "statusDot";
     return;
   }
@@ -637,14 +801,32 @@ function setResponseUI(result) {
   badge.className = `badge ${ok ? "ok" : "fail"}`;
   badge.textContent = ok ? "OK" : "FAILED";
   info.textContent = result.statusCode !== undefined ? `Status: ${result.statusCode}` : "Status: -";
-  pre.textContent = result.responsePreview || (result.errorMessage ? `Error: ${result.errorMessage}` : "");
+  const rawText = String(result.responseRaw ?? result.responsePreview ?? "");
+  const fallbackText = result.errorMessage ? `Error: ${result.errorMessage}` : "";
+  const rawOut = rawText || fallbackText;
+  rawPre.textContent = rawOut;
+
+  const kind = detectResponseKind(result);
+  if (kind === "json") {
+    prettyPre.textContent = tryPrettyJsonString(rawOut, rawOut);
+    htmlFrame.srcdoc = "";
+    setResponseViewMode("pretty");
+  } else if (kind === "html") {
+    prettyPre.textContent = rawOut;
+    htmlFrame.srcdoc = rawOut;
+    setResponseViewMode("preview");
+  } else {
+    prettyPre.textContent = rawOut;
+    htmlFrame.srcdoc = "";
+    setResponseViewMode("raw");
+  }
   if (dot) dot.className = `statusDot ${ok ? "ok" : "fail"}`;
 }
 
 function renderHistory(items) {
   const list = $("historyList");
   list.innerHTML = "";
-  const max = Math.min(items.length, 50);
+  const max = Math.min(items.length, 30);
   for (let i = 0; i < max; i++) {
     const item = items[i];
     const wrapper = document.createElement("div");
@@ -664,7 +846,8 @@ function renderHistory(items) {
 
     const preview = document.createElement("pre");
     preview.style.marginTop = "6px";
-    preview.textContent = item.responsePreview || "";
+    const previewText = String(item.responsePreview || "");
+    preview.textContent = previewText.length > 1200 ? previewText.slice(0, 1200) + "...(truncated)" : previewText;
 
     const err = document.createElement("div");
     err.className = "muted";
@@ -730,6 +913,104 @@ function syncHeadersTextareaFromRows() {
   }
   const ta = $("headersJson");
   if (ta) ta.value = JSON.stringify(obj, null, 2);
+}
+
+function splitUrlForQuery(rawUrl) {
+  const text = String(rawUrl ?? "");
+  const hashIdx = text.indexOf("#");
+  const hashPart = hashIdx >= 0 ? text.slice(hashIdx) : "";
+  const withoutHash = hashIdx >= 0 ? text.slice(0, hashIdx) : text;
+  const qIdx = withoutHash.indexOf("?");
+  if (qIdx < 0) return { base: withoutHash, query: "", hash: hashPart };
+  return {
+    base: withoutHash.slice(0, qIdx),
+    query: withoutHash.slice(qIdx + 1),
+    hash: hashPart,
+  };
+}
+
+function setParamRowsFromUrl(rawUrl) {
+  const { query } = splitUrlForQuery(rawUrl);
+  if (!query) {
+    paramRows = [];
+    return;
+  }
+  const params = new URLSearchParams(query);
+  paramRows = [];
+  for (const [key, value] of params.entries()) {
+    paramRows.push({ key, value });
+  }
+}
+
+function buildUrlFromParamRows(rawUrl) {
+  const { base, hash } = splitUrlForQuery(rawUrl);
+  const params = new URLSearchParams();
+  for (const row of paramRows) {
+    const key = String(row?.key ?? "").trim();
+    if (!key) continue;
+    params.append(key, String(row?.value ?? ""));
+  }
+  const q = params.toString();
+  return `${base}${q ? `?${q}` : ""}${hash}`;
+}
+
+function renderParamsTable() {
+  const host = $("paramsTable");
+  if (!host) return;
+  host.innerHTML = "";
+
+  for (let i = 0; i < paramRows.length; i++) {
+    const r = paramRows[i];
+    const wrap = document.createElement("div");
+    wrap.className = "kvRow";
+
+    const keyInput = document.createElement("input");
+    keyInput.type = "text";
+    keyInput.placeholder = "Key";
+    keyInput.value = r.key ?? "";
+
+    const valInput = document.createElement("input");
+    valInput.type = "text";
+    valInput.placeholder = "Value";
+    valInput.value = r.value ?? "";
+
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "iconBtn";
+    delBtn.textContent = "✕";
+
+    const applyToUrl = () => {
+      const urlEl = $("urlInput");
+      if (!urlEl) return;
+      syncingUrlFromParams = true;
+      try {
+        urlEl.value = buildUrlFromParamRows(urlEl.value);
+        syncVarHighlightBackdrop(urlEl);
+      } finally {
+        syncingUrlFromParams = false;
+      }
+      schedulePersistOpenRequestTabs();
+    };
+
+    keyInput.addEventListener("input", () => {
+      paramRows[i].key = keyInput.value;
+      applyToUrl();
+    });
+    valInput.addEventListener("input", () => {
+      paramRows[i].value = valInput.value;
+      applyToUrl();
+    });
+    delBtn.addEventListener("click", () => {
+      paramRows.splice(i, 1);
+      renderParamsTable();
+      applyToUrl();
+    });
+
+    wrap.appendChild(keyInput);
+    wrap.appendChild(valInput);
+    wrap.appendChild(delBtn);
+    host.appendChild(wrap);
+  }
 }
 
 function renderHeadersTable() {
@@ -819,7 +1100,6 @@ function renderHeadersTable() {
       });
 
       bindVarSuggestToEl(customInput);
-      bindVarHoverTooltip(customInput);
       ensureVarHighlight(customInput);
 
       valWrap.appendChild(sel);
@@ -837,7 +1117,6 @@ function renderHeadersTable() {
         debPersistDraft();
       });
       bindVarSuggestToEl(valInput);
-      bindVarHoverTooltip(valInput);
       ensureVarHighlight(valInput);
       valueEl = valInput;
     }
@@ -894,9 +1173,22 @@ function resetRequestForm() {
   loadDraftToForm(newDraft());
 }
 
+function findFolderNodeById(nodes, folderId) {
+  if (!folderId) return null;
+  for (const n of nodes ?? []) {
+    if (n?.type === "folder") {
+      if (n.id === folderId) return n;
+      const found = findFolderNodeById(n.children ?? [], folderId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function renderRequestsList(_collection) {
   const container = $("requestsList");
   container.innerHTML = "";
+  const filterText = String($("sidebarFilter")?.value ?? "").trim().toLowerCase();
 
   // artik getState cagrisi yapmiyoruz: cachedState uzerinden render ediyoruz.
   const state = cachedState;
@@ -913,7 +1205,20 @@ function renderRequestsList(_collection) {
     if (!selectedCollectionId) selectedCollectionId = collections[0]?.id ?? null;
     if (!saveTargetCollectionId) saveTargetCollectionId = selectedCollectionId;
 
-    const renderNode = (node, depth, collectionId) => {
+    const nodeMatchesFilter = (node, q) => {
+      if (!q) return true;
+      if (String(node?.name ?? "").toLowerCase().includes(q)) return true;
+      if (node?.type === "folder") {
+        for (const ch of node.children ?? []) {
+          if (nodeMatchesFilter(ch, q)) return true;
+        }
+      }
+      return false;
+    };
+
+    const renderNode = (node, depth, collectionId, parentFolderId = null) => {
+    if (!nodeMatchesFilter(node, filterText)) return;
+
     const row = document.createElement("div");
     row.className = "treeItem";
     if (node.type === "request" && node.id === selectedRequestId) row.classList.add("active");
@@ -924,8 +1229,7 @@ function renderRequestsList(_collection) {
     icon.className = "treeIcon";
     if (node.type === "folder") {
       const collapsed = !!collapseState.folders[node.id];
-      // Folder: caret + folder icon
-      icon.textContent = `${collapsed ? "▸" : "▾"} 📁`;
+      icon.innerHTML = `${treeChevronSvg(collapsed)}<span class="treeTypeGlyph">📁</span>`;
     } else {
       // Request icon
       icon.textContent = "📝";
@@ -967,6 +1271,9 @@ function renderRequestsList(_collection) {
       }, 0);
     } else {
       name.textContent = node.name;
+      if (node.type === "request") {
+        name.title = String(node.name ?? "");
+      }
     }
 
     row.appendChild(icon);
@@ -983,6 +1290,32 @@ function renderRequestsList(_collection) {
         pendingDelete.id === node.id;
 
       if (!isConfirming) {
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "treeActionBtn";
+        copy.title = "Kopyala";
+        copy.innerHTML = treeIconCopySvg();
+        copy.addEventListener("click", async (ev) => {
+          ev.stopPropagation();
+          try {
+            const copiedName = `${String(node.name ?? "Untitled Request")} (copy)`;
+            const copiedDef = JSON.parse(JSON.stringify(node.definition ?? {}));
+            await window.api.upsertRequestNodeV1({
+              collectionId,
+              parentFolderId,
+              name: copiedName,
+              definition: copiedDef,
+            });
+            selectedCollectionId = collectionId;
+            selectedFolderId = parentFolderId;
+            $("resultLine").textContent = "Request kopyalandi.";
+            await refreshState();
+          } catch (e) {
+            $("resultLine").textContent = `Kopyalama hatasi: ${e?.message || e}`;
+          }
+        });
+        actions.appendChild(copy);
+
         const del = document.createElement("button");
         del.type = "button";
         del.className = "treeActionBtn danger";
@@ -1171,6 +1504,110 @@ function renderRequestsList(_collection) {
         try {
           ev.dataTransfer.setData("text/plain", JSON.stringify({ type: "request", requestId: node.id }));
         } catch {}
+        try {
+          ev.dataTransfer.effectAllowed = "move";
+          ev.dataTransfer.dropEffect = "move";
+        } catch {}
+
+        // Visual feedback
+        draggingTreeRequestEl = row;
+        row.classList.add("treeItemDragging");
+
+        // Cleaner drag image (native ghost often looks ugly)
+        try {
+          const ghost = document.createElement("div");
+          ghost.style.position = "fixed";
+          ghost.style.top = "-1000px";
+          ghost.style.left = "-1000px";
+          ghost.style.padding = "8px 10px";
+          ghost.style.background = "rgba(255,255,255,0.98)";
+          ghost.style.border = "1px solid var(--border)";
+          ghost.style.borderRadius = "10px";
+          ghost.style.boxShadow = "0 10px 25px rgba(0,0,0,0.15)";
+          ghost.style.fontSize = "12px";
+          ghost.style.color = "var(--text)";
+          ghost.style.whiteSpace = "nowrap";
+          ghost.textContent = String(node.name ?? "Request");
+          document.body.appendChild(ghost);
+          ev.dataTransfer.setDragImage(ghost, 10, 10);
+          setTimeout(() => {
+            try {
+              ghost.remove();
+            } catch {}
+          }, 0);
+        } catch {}
+      });
+
+      // Request reorder (within same parent list)
+      row.addEventListener("dragover", (ev) => {
+        // Drop'un calismasi icin dragover'da preventDefault sart.
+        // Veri parse edilemeyse bile drop'u engellemiyoruz.
+        ev.preventDefault();
+        try {
+          ev.dataTransfer.dropEffect = "move";
+        } catch {}
+        if (treeDropTargetEl && treeDropTargetEl !== row) {
+          treeDropTargetEl.classList.remove("treeItemDropTarget");
+        }
+        treeDropTargetEl = row;
+        if (!row.classList.contains("treeItemDropTarget")) row.classList.add("treeItemDropTarget");
+      });
+      row.addEventListener("drop", async (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        try {
+          if (treeDropTargetEl) treeDropTargetEl.classList.remove("treeItemDropTarget");
+          treeDropTargetEl = null;
+
+          if (draggingTreeRequestEl) draggingTreeRequestEl.classList.remove("treeItemDragging");
+          draggingTreeRequestEl = null;
+
+          const raw = ev.dataTransfer?.getData("text/plain");
+          if (!raw) return;
+          const payload = JSON.parse(raw);
+          if (payload?.type !== "request" || !payload.requestId) return;
+          if (payload.requestId === node.id) return;
+
+          const state = cachedState;
+          const collections = state?.collections ?? [];
+          const targetCollection = collections.find((c) => c.id === collectionId);
+          if (!targetCollection) return;
+
+          const parentNode = parentFolderId ? findFolderNodeById(targetCollection.nodes ?? [], parentFolderId) : null;
+          const targetArr = parentNode ? parentNode.children ?? [] : targetCollection.nodes ?? [];
+
+          const insertionOriginalIndex = targetArr.findIndex((x) => x?.type === "request" && x.id === node.id);
+          if (insertionOriginalIndex < 0) return;
+
+          const draggingIndex = targetArr.findIndex((x) => x?.type === "request" && x.id === payload.requestId);
+          let targetIndex = insertionOriginalIndex;
+          if (draggingIndex !== -1 && draggingIndex < insertionOriginalIndex) targetIndex = insertionOriginalIndex - 1;
+
+          await window.api.moveRequestNodeToIndexV1({
+            requestId: payload.requestId,
+            targetCollectionId: collectionId,
+            targetFolderId: parentFolderId,
+            targetIndex,
+          });
+
+          $("resultLine").textContent = "Request siralandirildi.";
+          await refreshState({ deferHeavy: true });
+        } catch (e) {
+          $("resultLine").textContent = `Sirala hatasi: ${e?.message || e}`;
+          if (treeDropTargetEl) treeDropTargetEl.classList.remove("treeItemDropTarget");
+          treeDropTargetEl = null;
+          if (draggingTreeRequestEl) draggingTreeRequestEl.classList.remove("treeItemDragging");
+          draggingTreeRequestEl = null;
+        }
+      });
+
+      row.addEventListener("dragend", () => {
+        try {
+          if (treeDropTargetEl) treeDropTargetEl.classList.remove("treeItemDropTarget");
+          treeDropTargetEl = null;
+          if (draggingTreeRequestEl) draggingTreeRequestEl.classList.remove("treeItemDragging");
+          draggingTreeRequestEl = null;
+        } catch {}
       });
 
       row.addEventListener("click", () => {
@@ -1193,12 +1630,22 @@ function renderRequestsList(_collection) {
 
     container.appendChild(row);
 
-    if (node.type === "folder" && !collapseState.folders[node.id]) {
-      for (const ch of node.children ?? []) renderNode(ch, depth + 1, collectionId);
+    const folderCollapsedByUser = !!collapseState.folders[node.id];
+    const showExpandedForSearch = !!filterText;
+    if (node.type === "folder" && (showExpandedForSearch || !folderCollapsedByUser)) {
+      for (const ch of node.children ?? []) renderNode(ch, depth + 1, collectionId, node.id);
     }
   };
 
+    let renderedCollectionCount = 0;
     for (const c of collections) {
+      const collectionMatches = !filterText
+        ? true
+        : String(c?.name ?? "").toLowerCase().includes(filterText) ||
+          (c.nodes ?? []).some((n) => nodeMatchesFilter(n, filterText));
+      if (!collectionMatches) continue;
+      renderedCollectionCount += 1;
+
       // collection header row
       const header = document.createElement("div");
       header.className = "treeItem";
@@ -1208,8 +1655,7 @@ function renderRequestsList(_collection) {
       const icon = document.createElement("div");
       icon.className = "treeIcon";
       const colCollapsed = !!collapseState.collections[c.id];
-      // Collection: caret + distinct icon
-      icon.textContent = `${colCollapsed ? "▸" : "▾"} 🧰`;
+      icon.innerHTML = `${treeChevronSvg(colCollapsed)}<span class="treeTypeGlyph">🧰</span>`;
       icon.style.cursor = "pointer";
       icon.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -1372,10 +1818,19 @@ function renderRequestsList(_collection) {
 
       container.appendChild(header);
 
-      if (!collapseState.collections[c.id]) {
+      const collectionCollapsedByUser = !!collapseState.collections[c.id];
+      const showExpandedForSearch = !!filterText;
+      if (showExpandedForSearch || !collectionCollapsedByUser) {
         const nodes = c.nodes ?? [];
-        for (const n of nodes) renderNode(n, 1, c.id);
+        for (const n of nodes) renderNode(n, 1, c.id, null);
       }
+    }
+
+    if (renderedCollectionCount === 0) {
+      const div = document.createElement("div");
+      div.className = "muted";
+      div.textContent = "Aramana uygun oge bulunamadi.";
+      container.appendChild(div);
     }
 }
 
@@ -1452,7 +1907,7 @@ async function init() {
   requestAnimationFrame(() => {
     try {
       renderHeadersTable();
-      refreshVariableHighlights();
+      scheduleRefreshVariableHighlights();
       renderOpenTabsBar();
     } catch (e) {
       logApiZeroError("init.postLoad", e);
@@ -1505,7 +1960,7 @@ function scheduleVariableHighlightsDeferred() {
     requestIdleCallback(
       () => {
         try {
-          refreshVariableHighlights();
+          scheduleRefreshVariableHighlights();
         } catch (e) {
           logApiZeroError("scheduleVariableHighlightsDeferred", e);
         }
@@ -1515,7 +1970,7 @@ function scheduleVariableHighlightsDeferred() {
   } else {
     setTimeout(() => {
       try {
-        refreshVariableHighlights();
+        scheduleRefreshVariableHighlights();
       } catch (e) {
         logApiZeroError("scheduleVariableHighlightsDeferred", e);
       }
@@ -1533,25 +1988,44 @@ function runHeavyRefreshFromCache(opts = {}) {
   if (deferHighlights) {
     scheduleVariableHighlightsDeferred();
   } else {
-    refreshVariableHighlights();
+    scheduleRefreshVariableHighlights();
   }
 }
 
 async function refreshState(opts = {}) {
   const deferHeavy = opts.deferHeavy === true;
-  const state = await window.api.getState();
-  cachedState = state;
-  renderEnvironmentsUI(state);
-  renderGlobalsUI(state);
-  if (deferHeavy) {
-    if (typeof requestIdleCallback !== "undefined") {
-      requestIdleCallback(() => runHeavyRefreshFromCache({ deferHighlights: true }), { timeout: 350 });
-    } else {
-      setTimeout(() => runHeavyRefreshFromCache({ deferHighlights: true }), 0);
-    }
-  } else {
-    runHeavyRefreshFromCache({ deferHighlights: false });
+  refreshStatePendingOpts.deferHeavy = refreshStatePendingOpts.deferHeavy || deferHeavy;
+
+  if (refreshStateInFlight) {
+    return refreshStateInFlight;
   }
+
+  refreshStateInFlight = (async () => {
+    try {
+      while (refreshStatePendingOpts.deferHeavy !== null) {
+        const runDeferHeavy = refreshStatePendingOpts.deferHeavy === true;
+        refreshStatePendingOpts.deferHeavy = null;
+
+        const state = await window.api.getState();
+        cachedState = state;
+        renderEnvironmentsUI(state);
+        renderGlobalsUI(state);
+        if (runDeferHeavy) {
+          if (typeof requestIdleCallback !== "undefined") {
+            requestIdleCallback(() => runHeavyRefreshFromCache({ deferHighlights: true }), { timeout: 350 });
+          } else {
+            setTimeout(() => runHeavyRefreshFromCache({ deferHighlights: true }), 0);
+          }
+        } else {
+          runHeavyRefreshFromCache({ deferHighlights: false });
+        }
+      }
+    } finally {
+      refreshStateInFlight = null;
+    }
+  })();
+
+  return refreshStateInFlight;
 }
 
 // ---- Environments / Globals (Postman-like) ----
@@ -1946,6 +2420,28 @@ function syncVarHighlightBackdrop(el) {
   }
 }
 
+let varHighlightRaf = null;
+const pendingVarHighlightEls = new Set();
+
+function scheduleVarHighlightForEl(el) {
+  if (!el) return;
+  pendingVarHighlightEls.add(el);
+  if (varHighlightRaf) return;
+  varHighlightRaf = requestAnimationFrame(() => {
+    varHighlightRaf = null;
+    const queued = Array.from(pendingVarHighlightEls);
+    pendingVarHighlightEls.clear();
+    queued.forEach((queuedEl) => {
+      try {
+        forceVarInputTransparent(queuedEl);
+        syncVarHighlightBackdrop(queuedEl);
+      } catch (e) {
+        logApiZeroError("scheduleVarHighlightForEl.flush", e);
+      }
+    });
+  });
+}
+
 function ensureVarHighlight(el) {
   if (!el || el.dataset.varHighlightInit === "1") return;
   try {
@@ -1965,7 +2461,7 @@ function ensureVarHighlight(el) {
 
     const update = () => {
       try {
-        syncVarHighlightBackdrop(el);
+        scheduleVarHighlightForEl(el);
       } catch (e) {
         logApiZeroError("varHighlight.input", e);
       }
@@ -1978,8 +2474,8 @@ function ensureVarHighlight(el) {
     forceVarInputTransparent(el);
     requestAnimationFrame(() => {
       try {
-        syncVarHighlightBackdrop(el);
-        requestAnimationFrame(() => syncVarHighlightBackdrop(el));
+        scheduleVarHighlightForEl(el);
+        requestAnimationFrame(() => scheduleVarHighlightForEl(el));
       } catch (e) {
         logApiZeroError("ensureVarHighlight.rAF", e);
       }
@@ -1992,18 +2488,26 @@ function ensureVarHighlight(el) {
 function refreshVariableHighlights() {
   document.querySelectorAll(".varHighlightInput").forEach((el) => {
     try {
-      forceVarInputTransparent(el);
-      syncVarHighlightBackdrop(el);
+      scheduleVarHighlightForEl(el);
     } catch (e) {
       logApiZeroError("refreshVariableHighlights", e);
     }
   });
 }
 
+let varHighlightRefreshRaf = null;
+function scheduleRefreshVariableHighlights() {
+  if (varHighlightRefreshRaf) return;
+  varHighlightRefreshRaf = requestAnimationFrame(() => {
+    varHighlightRefreshRaf = null;
+    refreshVariableHighlights();
+  });
+}
+
 function setupVarHighlightForRequestEditors() {
   ensureVarHighlight($("urlInput"));
   ensureVarHighlight($("bodyJson"));
-  refreshVariableHighlights();
+  scheduleRefreshVariableHighlights();
 }
 
 /** Backend ile ayni: {{\\s*([A-Za-z0-9_]+)\\s*}} */
@@ -2214,6 +2718,8 @@ function updateVarHoverFromPointer(el, clientX, clientY) {
 
 function bindVarHoverTooltip(el) {
   if (!el || el.dataset.varHoverBound === "1") return;
+  // Scroll performansi icin textarea hover'i kapat (en pahali path).
+  if (el.tagName === "TEXTAREA") return;
   el.dataset.varHoverBound = "1";
 
   const host = el.closest(".varHighlightWrap") || el;
@@ -2244,7 +2750,6 @@ function bindVarHoverTooltip(el) {
 
 function setupVarHoverTooltipUI() {
   bindVarHoverTooltip($("urlInput"));
-  bindVarHoverTooltip($("bodyJson"));
   document.addEventListener("mousedown", () => hideVarHoverTooltip());
   document.addEventListener(
     "keydown",
@@ -2255,6 +2760,7 @@ function setupVarHoverTooltipUI() {
         closeImportModal();
         closeNewCollectionModal();
         closeNewFolderModal();
+        closeSaveRequestModal();
       }
     },
     true,
@@ -2550,7 +3056,10 @@ function applyVarSuggestSelection() {
   hideVarSuggest();
 }
 
-let varSuggestInputTimer = null;
+const VAR_SUGGEST_INPUT_DEBOUNCE_MS = 48;
+let varSuggestInputDebounceTimer = null;
+let varSuggestPendingEl = null;
+let varSuggestPendingKeepSelection = false;
 let varSuggestSuppressUntil = 0;
 
 function suppressVarSuggestBriefly(ms = 300) {
@@ -2558,8 +3067,25 @@ function suppressVarSuggestBriefly(ms = 300) {
 }
 
 function clearVarSuggestInputDebounce() {
-  clearTimeout(varSuggestInputTimer);
-  varSuggestInputTimer = null;
+  if (varSuggestInputDebounceTimer) clearTimeout(varSuggestInputDebounceTimer);
+  varSuggestInputDebounceTimer = null;
+  varSuggestPendingEl = null;
+  varSuggestPendingKeepSelection = false;
+}
+
+function scheduleVarSuggestUpdate(el, keepSelection = false) {
+  if (!el) return;
+  varSuggestPendingEl = el;
+  varSuggestPendingKeepSelection = varSuggestPendingKeepSelection || !!keepSelection;
+  if (varSuggestInputDebounceTimer) return;
+  varSuggestInputDebounceTimer = setTimeout(() => {
+    varSuggestInputDebounceTimer = null;
+    const targetEl = varSuggestPendingEl;
+    const keep = varSuggestPendingKeepSelection;
+    varSuggestPendingEl = null;
+    varSuggestPendingKeepSelection = false;
+    if (targetEl) updateVarSuggestFromEl(targetEl, keep);
+  }, VAR_SUGGEST_INPUT_DEBOUNCE_MS);
 }
 
 function bindVarSuggestToEl(el) {
@@ -2567,14 +3093,11 @@ function bindVarSuggestToEl(el) {
   el.dataset.varSuggestBound = "1";
 
   el.addEventListener("input", () => {
-    clearVarSuggestInputDebounce();
-    varSuggestInputTimer = setTimeout(() => {
-      updateVarSuggestFromEl(el);
-    }, 48);
+    scheduleVarSuggestUpdate(el, false);
   });
 
   el.addEventListener("click", () => {
-    updateVarSuggestFromEl(el, true);
+    scheduleVarSuggestUpdate(el, true);
   });
 
   el.addEventListener("scroll", () => {
@@ -2659,9 +3182,11 @@ async function clearHistory() {
 
 async function saveRequest(options) {
   const forceNew = !!options?.forceNew;
+  const requestedCollectionId = options?.targetCollectionId ?? null;
   try {
     if (!saveTargetCollectionId && selectedCollectionId) saveTargetCollectionId = selectedCollectionId;
-    if (!saveTargetCollectionId) {
+    const targetCollectionId = requestedCollectionId || saveTargetCollectionId || selectedCollectionId || null;
+    if (!targetCollectionId) {
       $("resultLine").textContent = "Kaydetmek icin once bir collection secin.";
       return;
     }
@@ -2674,15 +3199,18 @@ async function saveRequest(options) {
 
     const payload = getRequestPayload();
     $("resultLine").textContent = forceNew ? "Save as..." : "Save...";
+    const targetFolderId = targetCollectionId === selectedCollectionId ? selectedFolderId || saveTargetFolderId : null;
 
     const activeTab = getActiveTab();
     await window.api.upsertRequestNodeV1({
-      collectionId: saveTargetCollectionId,
-      parentFolderId: selectedFolderId || saveTargetFolderId,
+      collectionId: targetCollectionId,
+      parentFolderId: targetFolderId,
       requestId: forceNew ? undefined : selectedRequestId || undefined,
       name,
       definition: payload,
     });
+    saveTargetCollectionId = targetCollectionId;
+    saveTargetFolderId = targetFolderId;
 
     $("resultLine").textContent = forceNew ? "Kaydedildi (Save as)." : "Kaydedildi.";
     // Tab title update
@@ -2690,15 +3218,17 @@ async function saveRequest(options) {
       activeTab.title = name;
       activeTab.draft = readFormToDraft();
       if (!forceNew && selectedRequestId) {
-        activeTab.linked = activeTab.linked ?? { collectionId: saveTargetCollectionId, requestId: selectedRequestId };
+        activeTab.linked = activeTab.linked ?? { collectionId: targetCollectionId, requestId: selectedRequestId };
       }
     }
     renderOpenTabsBar();
     schedulePersistOpenRequestTabs();
     await refreshState();
     setLeftTab("collections");
+    return true;
   } catch (e) {
     $("resultLine").textContent = `Kaydetme hatasi: ${e?.message || e}`;
+    return false;
   }
 }
 
@@ -2707,6 +3237,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   await init();
   setupVarSuggestUI();
   setupVarHoverTooltipUI();
+  $("respViewPrettyBtn")?.addEventListener("click", () => setResponseViewMode("pretty"));
+  $("respViewRawBtn")?.addEventListener("click", () => setResponseViewMode("raw"));
+  $("respViewPreviewBtn")?.addEventListener("click", () => setResponseViewMode("preview"));
+  setResponseViewMode("pretty");
 
   window.addEventListener("beforeunload", () => {
     persistOpenRequestTabsSync();
@@ -2729,6 +3263,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     /** NOT: document capture input kullanma — sidebar (OpenAPI URL, env vb.) her input'ta
      *  closest() + readFormToDraft tetiklenip (buyuk body ile) UI kilitlenir. */
   })();
+
+  const urlInput = $("urlInput");
+  if (urlInput) {
+    urlInput.addEventListener("input", () => {
+      if (syncingUrlFromParams) return;
+      setParamRowsFromUrl(urlInput.value);
+      renderParamsTable();
+    });
+  }
 
   // Environments UI handlers
   const envSelect = $("envSelect");
@@ -2823,8 +3366,79 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   if ($("sendBtn")) $("sendBtn").addEventListener("click", sendRequest);
   if ($("clearHistoryBtn")) $("clearHistoryBtn").addEventListener("click", clearHistory);
-  if ($("saveReqBtn")) $("saveReqBtn").addEventListener("click", () => saveRequest({ forceNew: false }));
-  if ($("saveAsBtn")) $("saveAsBtn").addEventListener("click", () => saveRequest({ forceNew: true }));
+  if ($("saveReqBtn")) {
+    $("saveReqBtn").addEventListener("click", async () => {
+      openSaveRequestModal();
+      const modal = $("saveRequestModal");
+      const panel = $("saveRequestModalPanel");
+      if (!modal || !panel) {
+        await runSaveRequestFallback(false);
+        return;
+      }
+      requestAnimationFrame(async () => {
+        const cs = window.getComputedStyle(modal);
+        const rect = panel.getBoundingClientRect();
+        const visible =
+          modal.classList.contains("open") &&
+          cs.display !== "none" &&
+          rect.width > 0 &&
+          rect.height > 0;
+        if (!visible) {
+          await runSaveRequestFallback(false);
+        }
+      });
+    });
+  }
+
+  const saveRequestModalBackdrop = $("saveRequestModalBackdrop");
+  const saveRequestModalClose = $("saveRequestModalClose");
+  const saveRequestNameInput = $("saveRequestNameInput");
+  const saveRequestCollectionSelect = $("saveRequestCollectionSelect");
+  const saveRequestModalSaveBtn = $("saveRequestModalSaveBtn");
+  const saveRequestModalSaveAsBtn = $("saveRequestModalSaveAsBtn");
+
+  if (saveRequestModalBackdrop) saveRequestModalBackdrop.addEventListener("click", () => closeSaveRequestModal());
+  if (saveRequestModalClose) saveRequestModalClose.addEventListener("click", () => closeSaveRequestModal());
+  if (saveRequestNameInput) {
+    saveRequestNameInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        saveRequestModalSaveBtn?.click();
+      }
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeSaveRequestModal();
+      }
+    });
+  }
+  if (saveRequestModalSaveBtn) {
+    saveRequestModalSaveBtn.addEventListener("click", async () => {
+      const nm = String(saveRequestNameInput?.value ?? "").trim();
+      if (!nm) {
+        $("resultLine").textContent = "Request name bos olamaz.";
+        saveRequestNameInput?.focus();
+        return;
+      }
+      const targetCollectionId = String(saveRequestCollectionSelect?.value ?? "").trim() || null;
+      if ($("requestNameInput")) $("requestNameInput").value = nm;
+      const ok = await saveRequest({ forceNew: false, targetCollectionId });
+      if (ok) closeSaveRequestModal();
+    });
+  }
+  if (saveRequestModalSaveAsBtn) {
+    saveRequestModalSaveAsBtn.addEventListener("click", async () => {
+      const nm = String(saveRequestNameInput?.value ?? "").trim();
+      if (!nm) {
+        $("resultLine").textContent = "Request name bos olamaz.";
+        saveRequestNameInput?.focus();
+        return;
+      }
+      const targetCollectionId = String(saveRequestCollectionSelect?.value ?? "").trim() || null;
+      if ($("requestNameInput")) $("requestNameInput").value = nm;
+      const ok = await saveRequest({ forceNew: true, targetCollectionId });
+      if (ok) closeSaveRequestModal();
+    });
+  }
 
   // + New dropdown
   const newBtn = $("sidebarNewBtn");
@@ -2904,7 +3518,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       resetRequestForm();
       renderOpenTabsBar();
       schedulePersistOpenRequestTabs();
-      const el = $("requestNameInput");
+      const el = $("urlInput");
       if (el) el.focus();
       if (menu) menu.classList.remove("open");
     });
@@ -2917,6 +3531,43 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (tabEnv) tabEnv.addEventListener("click", () => setLeftTab("environment"));
   if (tabHistory) tabHistory.addEventListener("click", () => setLeftTab("history"));
   if (tabCollections) tabCollections.addEventListener("click", () => setLeftTab("collections"));
+  const sidebarFilter = $("sidebarFilter");
+  const sidebarFilterClearBtn = $("sidebarFilterClearBtn");
+  const updateSidebarFilterClearBtn = () => {
+    if (!sidebarFilterClearBtn || !sidebarFilter) return;
+    const hasText = String(sidebarFilter.value ?? "").trim().length > 0;
+    sidebarFilterClearBtn.classList.toggle("hidden", !hasText);
+  };
+  const clearSidebarFilter = () => {
+    if (!sidebarFilter) return;
+    sidebarFilter.value = "";
+    renderRequestsList(null);
+    updateSidebarFilterClearBtn();
+    try {
+      sidebarFilter.focus();
+    } catch {
+      /* ignore */
+    }
+  };
+  if (sidebarFilter) {
+    sidebarFilter.addEventListener("input", () => {
+      // Sadece collections listesi icin filtre.
+      renderRequestsList(null);
+      updateSidebarFilterClearBtn();
+    });
+    sidebarFilter.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        clearSidebarFilter();
+      }
+    });
+  }
+  if (sidebarFilterClearBtn) {
+    sidebarFilterClearBtn.addEventListener("click", () => {
+      clearSidebarFilter();
+    });
+  }
+  updateSidebarFilterClearBtn();
 
   // Request tabs
   const rtParams = $("reqTabParams");
@@ -2927,6 +3578,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (rtHeaders) rtHeaders.addEventListener("click", () => setRequestTab("headers"));
   if (rtBody) rtBody.addEventListener("click", () => setRequestTab("body"));
   if (rtScripts) rtScripts.addEventListener("click", () => setRequestTab("scripts"));
+
+  const addParamRowBtn = $("addParamRowBtn");
+  if (addParamRowBtn) {
+    addParamRowBtn.addEventListener("click", () => {
+      paramRows.push({ key: "", value: "" });
+      renderParamsTable();
+      schedulePersistOpenRequestTabs();
+    });
+  }
 
   // Headers table UI
   const addHeaderRowBtn = $("addHeaderRowBtn");
@@ -3175,8 +3835,42 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (importMenuOpenApiUrl) {
     importMenuOpenApiUrl.addEventListener("click", (ev) => {
       ev.stopPropagation();
-      const u = window.prompt("OpenAPI / Swagger JSON URL (https://...)", "");
-      if (u !== null) runImportOpenApiUrl(u);
+      openImportOpenApiUrlModal();
+    });
+  }
+
+  const importOpenApiUrlModalBackdrop = $("importOpenApiUrlModalBackdrop");
+  const importOpenApiUrlModalClose = $("importOpenApiUrlModalClose");
+  const importOpenApiUrlModalInput = $("importOpenApiUrlInput");
+  const importOpenApiUrlModalImportBtn = $("importOpenApiUrlModalImportBtn");
+  const importOpenApiUrlModalCancelBtn = $("importOpenApiUrlModalCancelBtn");
+
+  if (importOpenApiUrlModalBackdrop) {
+    importOpenApiUrlModalBackdrop.addEventListener("click", () => closeImportOpenApiUrlModal());
+  }
+  if (importOpenApiUrlModalClose) {
+    importOpenApiUrlModalClose.addEventListener("click", () => closeImportOpenApiUrlModal());
+  }
+  if (importOpenApiUrlModalCancelBtn) {
+    importOpenApiUrlModalCancelBtn.addEventListener("click", () => closeImportOpenApiUrlModal());
+  }
+  if (importOpenApiUrlModalInput) {
+    importOpenApiUrlModalInput.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        importOpenApiUrlModalImportBtn?.click();
+      }
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeImportOpenApiUrlModal();
+      }
+    });
+  }
+  if (importOpenApiUrlModalImportBtn) {
+    importOpenApiUrlModalImportBtn.addEventListener("click", async () => {
+      const url = String(importOpenApiUrlModalInput?.value ?? "").trim();
+      closeImportOpenApiUrlModal();
+      await runImportOpenApiUrl(url);
     });
   }
 });

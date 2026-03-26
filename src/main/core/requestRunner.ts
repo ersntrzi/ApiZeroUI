@@ -90,6 +90,11 @@ function previewJson(v: any, maxChars: number): string {
   }
 }
 
+function capRawText(raw: string, maxChars: number): string {
+  if (raw.length > maxChars) return raw.slice(0, maxChars) + "...(truncated)";
+  return raw;
+}
+
 export async function runRequestV1(
   store: PersistedStore,
   request: RequestDefinitionV1,
@@ -131,6 +136,7 @@ export async function runRequestV1(
   }
 
   const statusCode = resp.status;
+  const responseContentType = String(resp.headers.get("content-type") ?? "");
 
   let rawText: string = "";
   try {
@@ -155,6 +161,7 @@ export async function runRequestV1(
   const responsePreview = isJson
     ? previewJson(resBody, 8000)
     : (rawText.length > 8000 ? rawText.slice(0, 8000) + "...(truncated)" : rawText);
+  const responseRaw = capRawText(rawText, 200000);
 
   // post-res (V1) parse sonrasi hemen calisir; basarisiz olursa deger set edilmez.
   const envDraft = cloneVariablesMap(envVars);
@@ -172,7 +179,7 @@ export async function runRequestV1(
     });
   } catch (e: any) {
     const msg = e instanceof ApiZeroScriptError ? e.message : e?.message ?? "post-res failed";
-    return { success: false, statusCode, responsePreview, errorMessage: msg, resolvedUrl };
+    return { success: false, statusCode, responsePreview, responseRaw, responseContentType, errorMessage: msg, resolvedUrl };
   }
 
   // Script basarili: commit degisiklikleri
@@ -187,6 +194,6 @@ export async function runRequestV1(
   store.globals = globalsDraft;
 
   const success = statusCode >= 200 && statusCode < 300;
-  return { success, statusCode, responsePreview, resolvedUrl };
+  return { success, statusCode, responsePreview, responseRaw, responseContentType, resolvedUrl };
 }
 
